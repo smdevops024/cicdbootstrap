@@ -6,6 +6,14 @@
 
 set -euo pipefail
 
+VERSION="1.1.0"
+
+if [[ "$1" == "--version" ]]; then
+  echo "cicd-bootstrap.sh version $VERSION"
+  exit 0
+fi
+
+
 # ========== LOGGING ==========
 log_info() { echo -e "\033[1;34m[INFO]\033[0m  $1"; }
 log_success() { echo -e "\033[1;32m[SUCCESS]\033[0m  $1"; }
@@ -36,9 +44,35 @@ done
 
 # ========== VALIDATION ==========
 if [[ -z "$REPO" || -z "$CI_TOOL" || -z "$LANG" || -z "$DEPLOY" ]]; then
-  log_error "Required parameters missing."
-  echo "Usage: $0 --repo <url> --ci <github|gitlab> --lang <node|python|go> --deploy <docker|ssh> [--create-webhook] [--use-deepseek] [--dry-run] [--notify slack|discord]"
-  exit 1
+  log_warn "Required parameters missing. Switching to interactive mode..."
+
+  if [[ -z "$REPO" ]]; then
+    read -rp "Enter GitHub/GitLab repository URL: " REPO
+  fi
+
+  if [[ -z "$CI_TOOL" ]]; then
+    read -rp "Enter CI tool (github/gitlab): " CI_TOOL
+  fi
+
+  if [[ -z "$LANG" ]]; then
+    read -rp "Enter language (node/python/go): " LANG
+  fi
+
+  if [[ -z "$DEPLOY" ]]; then
+    read -rp "Enter deploy method (docker/ssh): " DEPLOY
+  fi
+
+  read -rp "Use DeepSeek AI if template missing? (Y/n): " USE_DS
+  [[ -z "$USE_DS" || "$USE_DS" =~ ^[Yy]$ ]] && USE_DEEPSEEK=true
+
+  read -rp "Create webhook? (Y/n): " CREATE_WH
+  [[ -z "$CREATE_WH" || "$CREATE_WH" =~ ^[Yy]$ ]] && CREATE_WEBHOOK=true
+
+  read -rp "Enable dry-run? (Y/n): " DRY
+  [[ -z "$DRY" || "$DRY" =~ ^[Yy]$ ]] && DRY_RUN=true
+
+  read -rp "Notify on (slack/discord/none): " NOTIFY_INPUT
+  [[ "$NOTIFY_INPUT" != "none" ]] && NOTIFY="$NOTIFY_INPUT"
 fi
 
 REPO_DIR=$(basename "$REPO" .git)
