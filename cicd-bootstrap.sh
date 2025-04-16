@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-VERSION="1.1.0"
+VERSION="1.3.0"
 
 if [[ "$1" == "--version" ]]; then
   echo "cicd-bootstrap.sh version $VERSION"
@@ -19,6 +19,51 @@ log_info() { echo -e "\033[1;34m[INFO]\033[0m  $1"; }
 log_success() { echo -e "\033[1;32m[SUCCESS]\033[0m  $1"; }
 log_error() { echo -e "\033[1;31m[ERROR]\033[0m  $1" >&2; }
 log_warn() { echo -e "\033[1;33m[WARN]\033[0m  $1"; }
+
+
+# ========== GLOBAL ERROR TRAP HANDLER ==========
+trap 'handle_error $? "$BASH_COMMAND"' ERR
+
+handle_error() {
+  local exit_code=$1
+  local failed_command=$2
+
+  log_error "Command failed: $failed_command"
+  echo "Exit code: $exit_code"
+
+  # Ask DeepSeek for fix
+  if [ -z "${DEEPSEEK_API_KEY:-}" ]; then
+    log_warn "DeepSeek API key is not set. Skipping AI resolution."
+    exit $exit_code
+  fi
+
+  log_info "Analyzing error using DeepSeek AI..."
+
+  prompt="The following command failed in a Bash script:\n\nCommand: $failed_command\nExit Code: $exit_code\n\nSuggest a fix with a one-line bash command to resolve the issue. Provide ONLY the command."
+
+  fix_command=$(curl -s -X POST "https://api.deepseek.com/v1/chat/completions" \
+    -H "Authorization: Bearer $DEEPSEEK_API_KEY" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "model": "deepseek-chat",
+      "messages": [
+        { "role": "user", "content": "'"$prompt"'" }
+      ]
+    }' | jq -r '.choices[0].message.content')
+
+  echo "$fix_command" > .deepseek-fix.log
+  log_warn "AI suggested fix: $fix_command"
+
+  read -rp "Do you want to run this fix? (Y/n): " confirm
+  if [[ -z "$confirm" || "$confirm" =~ ^[Yy]$ ]]; then
+    eval "$fix_command"
+    log_success "Fix command executed. Resuming script..."
+  else
+    log_warn "Fix skipped. Exiting with original error code."
+    exit $exit_code
+  fi
+}
+
 
 # ========== ARGUMENT PARSING ==========
 REPO="" CI_TOOL="" LANG="" DEPLOY=""
@@ -170,8 +215,55 @@ if git rev-parse --git-dir > /dev/null 2>&1; then
     git add "$CONFIG_DEST"
     git commit -m "Add/Update CI config for $LANG with $CI_TOOL"
     BRANCH=$(git rev-parse --abbrev-ref HEAD)
-    git push origin "$BRANCH"
-    log_success "CI config pushed to branch: $BRANCH"
+    
+    if ! git push origin "$BRANCH"; then
+    log_error "Git push failed. Attempting to analyze error using DeepSeek..."
+
+    ERROR_LOG=$(git status && git log -1 && git remote -v)
+    prompt="I encountered an error while pushing code to GitHub. Here's the error context:
+$ERROR_LOG
+Please analyze and regenerate the correct git command using DeepSeek AI."
+
+    if [ -z "${DEEPSEEK_API_KEY:-}" ]; then
+      log_error "DEEPSEEK_API_KEY not set. Skipping DeepSeek error resolution."
+    else
+      fix_command=$(curl -s -X POST "https://api.deepseek.com/v1/chat/completions" \
+        -H "Authorization: Bearer $DEEPSEEK_API_KEY" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "model": "deepseek-chat",
+          "messages": [
+            { "role": "user", "content": "'"$prompt"'" }
+          ]
+        }' | jq -r '.choices[0].message.content')
+
+      echo "$fix_command" > ../deepseek_git_fix_command.sh
+      log_info "AI suggested fix command saved to deepseek_git_fix_command.sh"
+      read -rp "Do you want to run this suggested command? (Y/n): " confirm_run
+      if [[ -z "$confirm_run" || "$confirm_run" =~ ^[Yy]$ ]]; then
+        bash ../deepseek_git_fix_command.sh
+        log_success "Suggested command executed."
+      else
+        log_warn "User skipped running suggested command."
+      fi
+    fielse
+        curl -s -X POST "https://api.deepseek.com/v1/chat/completions" \
+          -H "Authorization: Bearer $DEEPSEEK_API_KEY" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "model": "deepseek-chat",
+            "messages": [
+              { "role": "user", "content": "'"$prompt"'" }
+            ]
+          }' | jq -r '.choices[0].message.content' > ../deepseek_git_error_resolution.txt
+
+        log_info "DeepSeek analysis saved to deepseek_git_error_resolution.txt"
+        cat ../deepseek_git_error_resolution.txt
+      fi
+    else
+      log_success "CI config pushed to branch: $BRANCH"
+    fi
+
   else
     log_info "No changes to push."
   fi
@@ -207,4 +299,4 @@ if $CREATE_WEBHOOK && [[ "$CI_TOOL" == "github" ]]; then
   fi
 fi
 
-log_success "CI/CD bootstrap completed for $REPO_DIR!"
+log_success "✅ Final CI/CD Bootstrap Script Menu (v1.3.0) Completed for $REPO_DIR!"
