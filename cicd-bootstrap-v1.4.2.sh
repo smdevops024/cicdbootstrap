@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-VERSION="1.3.0"
+VERSION="1.4.0"
 
 if [[ "$1" == "--version" ]]; then
   echo "cicd-bootstrap.sh version $VERSION"
@@ -22,6 +22,55 @@ log_warn() { echo -e "\033[1;33m[WARN]\033[0m  $1"; }
 
 
 # ========== GLOBAL ERROR TRAP HANDLER ==========
+
+# ========== AI QUERY FUNCTION ==========
+query_ai() {
+  local prompt="$1"
+  local response=""
+
+  case "$AI_PROVIDER" in
+    chatgpt)
+      if [ -z "${OPENAI_API_KEY:-}" ]; then
+        log_error "OPENAI_API_KEY is missing. Set it in .env or export it."
+        return 1
+      fi
+      response=$(curl -s -X POST "https://api.openai.com/v1/chat/completions" \
+        -H "Authorization: Bearer $OPENAI_API_KEY" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "model": "gpt-3.5-turbo",
+          "messages": [{ "role": "user", "content": "'"$prompt"'" }]
+        }' | jq -r '.choices[0].message.content')
+      ;;
+    gemini)
+      if [ -z "${GEMINI_API_KEY:-}" ]; then
+        log_error "GEMINI_API_KEY is missing. Set it in .env or export it."
+        return 1
+      fi
+      response=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=$GEMINI_API_KEY" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "contents": [{ "parts": [{ "text": "'"$prompt"'" }] }]
+        }' | jq -r '.candidates[0].content.parts[0].text')
+      ;;
+    deepseek|*)
+      if [ -z "${DEEPSEEK_API_KEY:-}" ]; then
+        log_error "DEEPSEEK_API_KEY is missing. Set it in .env or export it."
+        return 1
+      fi
+      response=$(query_ai "$prompt" \
+        -H "Authorization: Bearer $DEEPSEEK_API_KEY" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "model": "deepseek-chat",
+          "messages": [{ "role": "user", "content": "'"$prompt"'" }]
+        }' | jq -r '.choices[0].message.content')
+      ;;
+  esac
+
+  echo "$response"
+}
+
 trap 'handle_error $? "$BASH_COMMAND"' ERR
 
 handle_error() {
@@ -41,7 +90,8 @@ handle_error() {
 
   prompt="The following command failed in a Bash script:\n\nCommand: $failed_command\nExit Code: $exit_code\n\nSuggest a fix with a one-line bash command to resolve the issue. Provide ONLY the command."
 
-  fix_command=$(curl -s -X POST "https://api.deepseek.com/v1/chat/completions" \
+  fix_command=$(query_ai "$prompt")
+ \
     -H "Authorization: Bearer $DEEPSEEK_API_KEY" \
     -H "Content-Type: application/json" \
     -d '{
@@ -71,8 +121,11 @@ CREATE_WEBHOOK=false
 USE_DEEPSEEK=false
 DRY_RUN=false
 NOTIFY=""
+AI_PROVIDER="deepseek"  # default AI
 
 while [[ "$#" -gt 0 ]]; do
+  # New AI selection option
+  
   case $1 in
     --repo) REPO="$2"; shift ;;
     --ci) CI_TOOL="$2"; shift ;;
@@ -82,10 +135,74 @@ while [[ "$#" -gt 0 ]]; do
     --use-deepseek) USE_DEEPSEEK=true ;;
     --dry-run) DRY_RUN=true ;;
     --notify) NOTIFY="$2"; shift ;;
+    --ai) AI_PROVIDER="$2"; shift ;;
     *) log_error "Unknown parameter: $1"; exit 1 ;;
   esac
   shift
 done
+
+
+# Load .env if exists
+if [ -f "../.env" ]; then
+  source ../.env
+fi
+
+# ========== AI SELECTION MENU ==========
+echo -e "\nSelect AI model for CI/CD assistance:"
+echo "1) ChatGPT"
+echo "2) Gemini"
+echo "3) DeepSeek (default)"
+
+read -rp "Enter choice [1-3]: " ai_choice
+
+case "$ai_choice" in
+  1)
+    AI_PROVIDER="chatgpt"
+    echo -e "\nYou selected ChatGPT. Please ensure your OPENAI_API_KEY is set in ../.env"
+    ;;
+  2)
+    AI_PROVIDER="gemini"
+    echo -e "\nYou selected Gemini. Please ensure your GEMINI_API_KEY is set in ../.env"
+    ;;
+  3|*)
+    AI_PROVIDER="deepseek"
+    echo -e "\nYou selected DeepSeek (default). Please ensure your DEEPSEEK_API_KEY is set in ../.env"
+    ;;
+esac
+
+# Offer to open .env file for editing
+if [ ! -f "../.env" ]; then
+  cp ../.env.example ../.env
+  echo -e "\nCreated new .env from example."
+fi
+
+read -rp "Do you want to open the .env file now? (Y/n): " open_env
+if [[ -z "$open_env" || "$open_env" =~ ^[Yy]$ ]]; then
+  if command -v code &> /dev/null; then
+    code ../.env
+  elif command -v nano &> /dev/null; then
+    nano ../.env
+  else
+    echo "No editor found (VS Code or nano). Please edit ../.env manually."
+  fi
+fi
+
+# Offer to open .env file for editing
+if [ ! -f "../.env" ]; then
+  cp ../.env.example ../.env
+  echo -e "\nCreated new .env from example."
+fi
+
+read -rp "Do you want to open the .env file now? (Y/n): " open_env
+if [[ -z "$open_env" || "$open_env" =~ ^[Yy]$ ]]; then
+  if command -v code &> /dev/null; then
+    code ../.env
+  elif command -v nano &> /dev/null; then
+    nano ../.env
+  else
+    echo "No editor found (VS Code or nano). Please edit ../.env manually."
+  fi
+fi
 
 # ========== VALIDATION ==========
 if [[ -z "$REPO" || -z "$CI_TOOL" || -z "$LANG" || -z "$DEPLOY" ]]; then
@@ -167,7 +284,7 @@ if [ ! -f "$CONFIG_SRC" ]; then
 
     log_info "Querying DeepSeek AI..."
 
-    curl -s -X POST "https://api.deepseek.com/v1/chat/completions"       -H "Authorization: Bearer $DEEPSEEK_API_KEY"       -H "Content-Type: application/json"       -d '{
+    query_ai "$prompt"       -H "Authorization: Bearer $DEEPSEEK_API_KEY"       -H "Content-Type: application/json"       -d '{
         "model": "deepseek-chat",
         "messages": [
           { "role": "user", "content": "'"$prompt"'" }
@@ -227,7 +344,8 @@ Please analyze and regenerate the correct git command using DeepSeek AI."
     if [ -z "${DEEPSEEK_API_KEY:-}" ]; then
       log_error "DEEPSEEK_API_KEY not set. Skipping DeepSeek error resolution."
     else
-      fix_command=$(curl -s -X POST "https://api.deepseek.com/v1/chat/completions" \
+      fix_command=$(query_ai "$prompt")
+ \
         -H "Authorization: Bearer $DEEPSEEK_API_KEY" \
         -H "Content-Type: application/json" \
         -d '{
@@ -247,7 +365,7 @@ Please analyze and regenerate the correct git command using DeepSeek AI."
         log_warn "User skipped running suggested command."
       fi
     fielse
-        curl -s -X POST "https://api.deepseek.com/v1/chat/completions" \
+        query_ai "$prompt" \
           -H "Authorization: Bearer $DEEPSEEK_API_KEY" \
           -H "Content-Type: application/json" \
           -d '{
