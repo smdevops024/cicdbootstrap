@@ -1,0 +1,52 @@
+🔧 Purpose
+A Bash script to automate the setup of CI/CD pipelines for GitHub or GitLab repositories, supporting multiple languages and deployment methods.
+
+🌐 Cross-Platform Compatibility
+Designed to work on Linux, Ubuntu, and Git Bash for Windows.
+
+🧩 Customizable Inputs
+Accepts parameters via command-line flags:
+
+--repo: Git repository URL
+
+--ci: CI platform (github or gitlab)
+
+--lang: Programming language (node, python, or go)
+
+--deploy: Deployment method (docker or ssh)
+
+Optional: --create-webhook, --use-deepseek, --dry-run, --notify (slack or discord)
+
+📁 Repository Setup
+Clones the target repo if not already cloned.
+
+Navigates into the project directory.
+
+⚙️ CI/CD Configuration
+Copies a CI config template based on language and CI platform.
+
+Falls back to DeepSeek AI to generate a CI/CD config if the template doesn't exist.
+
+🤖 AI-Powered Fallback (DeepSeek)
+If --use-deepseek is set and a template is missing, it uses DeepSeek API to auto-generate a CI/CD workflow.
+
+Supports notifications if --notify is set.
+
+🚀 Deployment Script Integration
+Copies an appropriate deployment script (deploy-docker.sh or deploy-ssh.sh) into the repo.
+
+🔄 Auto Commit & Push
+Automatically commits and pushes the CI/CD config if changes are detected.
+
+🌐 GitHub Webhook Creation
+If --create-webhook is used and the repo is on GitHub, it creates a webhook via GitHub API.
+
+Requires GITHUB_TOKEN to be set in the environment.
+
+🧪 Dry Run Mode
+If --dry-run is set, it will preview the generated CI/CD config without making changes to the repo.
+
+✅ Logging and Safety
+Uses strict Bash options (set -euo pipefail) for robust error handling.
+
+Color-coded logging functions (INFO, SUCCESS, ERROR, WARN) for better UX.
