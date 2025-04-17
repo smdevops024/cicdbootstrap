@@ -8,7 +8,7 @@ set -euo pipefail
 
 VERSION="1.4.0"
 
-if [[ "$1" == "--version" ]]; then
+if [[ "${1:-}" == "--version" ]]; then"
   echo "cicd-bootstrap.sh version $VERSION"
   exit 0
 fi
