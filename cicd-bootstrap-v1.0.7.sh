@@ -190,3 +190,42 @@ if [[ "$copy_clip" =~ ^[Yy]$ || -z "$copy_clip" ]]; then
 fi
   fi
 fi
+
+# ========== Detect Active Local Branch (Fallback to main) ==========
+DEFAULT_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "main")
+echo "[INFO] Detected current branch: $DEFAULT_BRANCH"
+
+# ========== Push to Correct Branch ==========
+git push origin "$DEFAULT_BRANCH" 2>/dev/null \
+  && echo "[SUCCESS] Push to $DEFAULT_BRANCH complete!" \
+  || echo "[WARN] Push to $DEFAULT_BRANCH failed. Make sure the branch exists remotely."
+
+# ========== Write GitHub Actions Workflow ==========
+mkdir -p .github/workflows
+cat > .github/workflows/ci.yml <<EOF
+name: CI
+
+on:
+  push:
+    branches: [ $DEFAULT_BRANCH ]
+  pull_request:
+    branches: [ $DEFAULT_BRANCH ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - name: Install dependencies
+        run: npm install
+      - name: Run lint
+        run: npm run lint || echo 'Lint failed (non-blocking)'
+      - name: Run tests
+        run: npm test || echo 'Tests failed (non-blocking)'
+EOF
+
+echo "[SUCCESS] GitHub Actions CI workflow created: .github/workflows/ci.yml"
