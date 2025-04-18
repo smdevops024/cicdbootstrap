@@ -1,32 +1,42 @@
-# 🚀 CICD Bootstrap v1.0.4
+# 🚀 CI/CD Bootstrap Script v1.0.7
 
-A fully automated, AI-enhanced, OS-aware DevOps initializer script by 👑 Raja Muhammad Awais.
-
----
-
-## 🎯 Features
-
-- 🧠 AI model selection (ChatGPT, Gemini, DeepSeek)
-- 🔐 SSH key check, generation, display, clipboard
-- 🧾 Git identity setup
-- 🌀 Git repo clone with branch auto-detection
-- 🛠️ GitHub Actions workflow auto-generated
-- ✅ Safe push to detected default branch
-- 🎨 Colorized DevOps branding + prompts
-- 💻 OS-aware: Linux / macOS / Windows Git Bash
+This is the latest and most stable version of the cross-platform DevOps initializer script, maintained by 👑 Raja Muhammad Awais.
 
 ---
 
-## 📦 Usage
+## ✅ Key Features
+
+- 🧠 AI Provider Prompt (ChatGPT, Gemini, DeepSeek)
+- 🔐 SSH Key Detection & Generation
+- 📋 Auto Clipboard Integration (Windows/macOS/Linux)
+- 📂 Git Config Setup + Repo Clone
+- 🌿 Accurate Branch Detection (`main`, `master`, etc.)
+- 📦 Auto CI Workflow Generation (.github/workflows/ci.yml)
+- ✅ Git Add, Commit, Push with dynamic branch support
+- 🎨 Colorized CLI Output
+
+---
+
+## 📥 Usage
 
 ```bash
-chmod +x cicd-bootstrap.sh
-./cicd-bootstrap.sh
+chmod +x install.sh
+./install.sh
+source ~/.bashrc
+cicd  # to run the script globally
 ```
 
 ---
 
-## 🌐 Created By
+## 🌐 Compatible With
+
+- Linux
+- macOS
+- Windows Git Bash / WSL
+
+---
+
+## 🛠 Maintained by
 
 👑 **Raja Muhammad Awais**  
 "Automate with precision. Secure with honor. Scale with vision. Lead with purpose."
