@@ -1,20 +1,22 @@
-# 🚀 CI/CD Bootstrap Script v1.0.7
+# 🚀 CI/CD Bootstrap Script v2.6
 
 This is the latest and most stable version of the cross-platform DevOps initializer script, maintained by 👑 Raja Muhammad Awais.
 
 ---
+## 📌 Features
 
-## ✅ Key Features
-
-- 🧠 AI Provider Prompt (ChatGPT, Gemini, DeepSeek)
-- 🔐 SSH Key Detection & Generation
-- 📋 Auto Clipboard Integration (Windows/macOS/Linux)
-- 📂 Git Config Setup + Repo Clone
-- 🌿 Accurate Branch Detection (`main`, `master`, etc.)
-- 📦 Auto CI Workflow Generation (.github/workflows/ci.yml)
-- ✅ Git Add, Commit, Push with dynamic branch support
-- 🎨 Colorized CLI Output
-
+- 🔍 **OS Detection**: Automatically identifies Linux, macOS, or Windows.
+- 🤖 **AI Integration**: Choose between ChatGPT, Gemini, or DeepSeek for live:
+  - Code diff summaries
+  - Bug/security analysis
+  - Commit message generation
+- 🔐 **Secure API Key Storage**: Automatically manages and secures your API keys in a `.env` file.
+- 🔄 **Git Repository Handling**:
+  - Clones a GitHub/GitLab repo
+  - Auto-stages all files (including submodules)
+  - Rebases and pushes to the correct branch
+- ⚠️ **Error Logging**: All actions are logged in `cicd-log.txt` for audit and debugging.
+- 📄 **Git Hygiene**: Automatically adds `.env`, logs, and unwanted files to `.gitignore` and `.gitattributes`.
 ---
 
 ## 📥 Usage
